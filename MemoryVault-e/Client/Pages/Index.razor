@@ -1,0 +1,73 @@
+﻿@page "/"
+@inject IJSRuntime JS
+
+<h1>Secure Journal</h1>
+<p>Data never leaves your browser.</p>
+
+<div class="editor-panel" style="background: var(--surface-color); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border-left: 4px solid var(--primary-neon);">
+    <h3 style="margin-top: 0; color: var(--text-main);">New Memory Node</h3>
+    
+    <div style="margin-bottom: 1rem;">
+        <input @bind="newEntry.Title" placeholder="Entry Title" style="width: 100%; box-sizing: border-box; padding: 0.75rem; background: var(--bg-color); color: var(--text-main); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 4px; outline: none; font-family: inherit;" />
+    </div>
+    
+    <div style="margin-bottom: 1rem;">
+        <textarea @bind="newEntry.Content" placeholder="Record your private thoughts..." rows="5" style="width: 100%; box-sizing: border-box; padding: 0.75rem; background: var(--bg-color); color: var(--text-main); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 4px; outline: none; font-family: inherit; resize: vertical;"></textarea>
+    </div>
+    
+    <button class="neon-btn" @onclick="SaveEntry">Save to Vault</button>
+</div>
+
+@if (entries == null)
+{
+    <p>Decrypting local storage...</p>
+}
+else
+{
+    @foreach (var item in entries)
+    {
+        <div class="vault-card">
+            <h3 style="margin: 0 0 0.25rem 0; color: var(--primary-neon);">@item.Title</h3>
+            <p style="margin: 0 0 1rem 0; color: var(--text-muted); font-size: 0.85rem;">@item.CreatedAt.ToString("g") | @item.ItemType</p>
+            <p style="margin: 0; line-height: 1.6; white-space: pre-wrap;">@item.Content</p>
+        </div>
+    }
+}
+
+@code {
+    private List<VaultItem>? entries;
+    private VaultItem newEntry = new VaultItem();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEntries();
+    }
+
+    private async Task SaveEntry()
+    {
+        // Provide a default title if the user leaves it blank
+        if (string.IsNullOrWhiteSpace(newEntry.Title))
+        {
+            newEntry.Title = "Untitled Node";
+        }
+
+        // Save to IndexedDB
+        await JS.InvokeVoidAsync("vaultDb.saveEntry", newEntry);
+        
+        // Clear the form by instantiating a new object
+        newEntry = new VaultItem(); 
+        
+        // Refresh the UI
+        await LoadEntries();
+    }
+
+    private async Task LoadEntries()
+    {
+        // Retrieve and reverse the list so the newest entries appear at the top
+        var data = await JS.InvokeAsync<List<VaultItem>>("vaultDb.getEntries");
+        data.Reverse();
+        entries = data;
+        
+        StateHasChanged();
+    }
+}
